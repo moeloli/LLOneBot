@@ -114,4 +114,8 @@ export class NTQQFriendApi extends Service {
   async getCategoryById(categoryId: number) {
     return await invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
   }
+
+  async setTop(uid: string, isTop: boolean) {
+    return await invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
+  }
 }

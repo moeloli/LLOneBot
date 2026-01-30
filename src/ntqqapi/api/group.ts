@@ -424,4 +424,8 @@ export class NTQQGroupApi extends Service {
   async checkGroupMemberCache(groupCodes: string[]) {
     return await invoke('nodeIKernelGroupService/checkGroupMemberCache', [groupCodes])
   }
+
+  async setTop(groupCode: string, isTop: boolean) {
+    return await invoke('nodeIKernelGroupService/setTop', [groupCode, isTop])
+  }
 }
