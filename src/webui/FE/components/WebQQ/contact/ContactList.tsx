@@ -184,7 +184,21 @@ const FriendCategoryList: React.FC<FriendCategoryListProps> = ({ categories, sel
   const { expandedCategories, toggleCategory } = useWebQQStore()
   const expandedSet = useMemo(() => new Set(expandedCategories), [expandedCategories])
 
-  if (categories.length === 0) {
+  // 对每个分组的好友按置顶状态排序
+  const sortedCategories = useMemo(() => {
+    return categories.map(category => ({
+      ...category,
+      friends: [...category.friends].sort((a, b) => {
+        const aIsTop = !!(a.topTime && a.topTime !== '0')
+        const bIsTop = !!(b.topTime && b.topTime !== '0')
+        if (aIsTop && !bIsTop) return -1
+        if (!aIsTop && bIsTop) return 1
+        return 0
+      })
+    }))
+  }, [categories])
+
+  if (sortedCategories.length === 0) {
     return (
       <div className="flex items-center justify-center h-32 text-theme-hint text-sm">
         暂无好友
@@ -194,7 +208,7 @@ const FriendCategoryList: React.FC<FriendCategoryListProps> = ({ categories, sel
 
   return (
     <div className="py-1">
-      {categories.map(category => {
+      {sortedCategories.map(category => {
         const isExpanded = expandedSet.has(category.categoryId)
         return (
           <div key={category.categoryId}>
@@ -330,7 +344,16 @@ interface GroupListProps {
 }
 
 const GroupList: React.FC<GroupListProps> = ({ items, selectedPeerId, onSelect }) => {
-  if (items.length === 0) {
+  // 按置顶状态排序
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      if (a.isTop && !b.isTop) return -1
+      if (!a.isTop && b.isTop) return 1
+      return 0
+    })
+  }, [items])
+
+  if (sortedItems.length === 0) {
     return (
       <div className="flex items-center justify-center h-32 text-theme-hint text-sm">
         暂无群组
@@ -340,7 +363,7 @@ const GroupList: React.FC<GroupListProps> = ({ items, selectedPeerId, onSelect }
 
   return (
     <div className="py-1">
-      {items.map(group => (
+      {sortedItems.map(group => (
         <GroupListItem
           key={group.groupCode}
           group={group}

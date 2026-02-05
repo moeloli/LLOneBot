@@ -12,6 +12,7 @@ V7.8.0
 * 优化 WebQQ 上传文件自动清理
 * 优化保存 Email 相关配置时，不再往 config_<qq>.json 写入，而是只保存在 email_config.json
 * WebQQ 置顶群聊现在和 PC / 手机端同步
+* 群聊列表支持置顶群
 
 =================
 
