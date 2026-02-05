@@ -135,7 +135,7 @@ interface WebQQState {
   updateRecentChat: (chatType: number, peerId: string, lastMessage: string, lastTime: number, peerName?: string, peerAvatar?: string) => void
   
   // 置顶/取消置顶会话
-  togglePinChat: (chatType: number, peerId: string) => void
+  togglePinChat: (chatType: number, peerId: string) => Promise<void>
   
   // 删除最近会话
   removeRecentChat: (chatType: number, peerId: string) => void
@@ -549,21 +549,39 @@ export const useWebQQStore = create<WebQQState>()(
       }),
 
       // 置顶/取消置顶会话
-      togglePinChat: (chatType, peerId) => set((state) => {
-        const chats = state.recentChats.map(item => {
-          if (item.chatType === chatType && item.peerId === peerId) {
-            return { ...item, pinned: !item.pinned }
-          }
-          return item
-        })
-        // 重新排序：置顶的在前，然后按时间排序
-        chats.sort((a, b) => {
-          if (a.pinned && !b.pinned) return -1
-          if (!a.pinned && b.pinned) return 1
-          return b.lastTime - a.lastTime
-        })
-        return { recentChats: chats }
-      }),
+      togglePinChat: async (chatType, peerId) => {
+        const state = get()
+        const chat = state.recentChats.find(item => item.chatType === chatType && item.peerId === peerId)
+        if (!chat) return
+        
+        const newPinnedState = !chat.pinned
+        
+        try {
+          // 调用 QQ API 设置置顶
+          const { setRecentChatTop } = await import('../utils/webqqApi')
+          await setRecentChatTop(chatType, peerId, newPinnedState)
+          
+          // 更新本地状态
+          set((state) => {
+            const chats = state.recentChats.map(item => {
+              if (item.chatType === chatType && item.peerId === peerId) {
+                return { ...item, pinned: newPinnedState }
+              }
+              return item
+            })
+            // 重新排序：置顶的在前，然后按时间排序
+            chats.sort((a, b) => {
+              if (a.pinned && !b.pinned) return -1
+              if (!a.pinned && b.pinned) return 1
+              return b.lastTime - a.lastTime
+            })
+            return { recentChats: chats }
+          })
+        } catch (error: any) {
+          console.error('设置置顶失败:', error)
+          throw error
+        }
+      },
 
       // 删除最近会话
       removeRecentChat: (chatType, peerId) => set((state) => {

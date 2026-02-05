@@ -220,4 +220,6 @@ export interface NodeIKernelGroupService {
   }>
 
   getGroupAllInfo(groupCode: string, source: GroupInfoSource): Promise<GeneralCallResult>
+
+  setTop(groupCode: string, isTop: boolean): Promise<GeneralCallResult>
 }
