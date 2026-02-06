@@ -10,6 +10,7 @@ V7.8.0
 * 修复无头模式不生效
 * 支持合并转发 node 指定 time
 * 支持 get_group_info 接口返回的 group_create_time 字段在未加群时获取
+* 支持 get_stranger_info 接口返回标签字段 labels
 * 优化 Desktop 一键对接框架使用体验
 * 优化 WebQQ 上传文件自动清理
 * 优化保存 Email 相关配置时，不再往 config_<qq>.json 写入，而是只保存在 email_config.json
@@ -19,6 +20,7 @@ V7.8.0
 
 ** 破坏性改动 **
 * `get_group_info` 去掉了 `groupAll` 字段，添加了 `is_top`, `owner_id`, `shut_up_all_timestamp`, `shut_up_me_timestamp`, `active_member_num`, `is_freeze`
+* `_send_group_notice` 请求参数 `pinned` 和 `confirm_required` 的类型由 integer 变为 boolean
 
 =================
 
