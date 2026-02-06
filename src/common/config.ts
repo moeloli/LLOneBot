@@ -1,17 +1,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import JSON5 from 'json5'
-import { Config, OB11Config, SatoriConfig, WebUIConfig } from './types'
+import { Config, WebUIConfig } from './types'
 import { DATA_DIR, selfInfo } from './globalVars'
 import { mergeNewProperties } from './utils/misc'
-import { fileURLToPath } from 'node:url'
 import { defaultConfig } from '@/common/defaultConfig'
 
 export class ConfigUtil {
   private configPath: string | undefined
   private config: Config | null = null
   private watch = false
-  private defaultConfigPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'default_config.json')
+  private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
 
   constructor(configPath?: string) {
     this.configPath = configPath

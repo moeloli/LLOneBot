@@ -9,10 +9,6 @@ process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason)
 })
 
-const __dirname = typeof window === 'undefined'
-  ? path.dirname(fileURLToPath(import.meta.url))
-  : ''
-global.__dirname = __dirname
 import Log from './log'
 import Core from '../ntqqapi/core'
 import OneBot11Adapter from '../onebot11/adapter'
