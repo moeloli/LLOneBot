@@ -97,7 +97,6 @@ export async function transformOutgoingForwardMessages(
 }
 
 class ForwardMessageEncoder {
-  static support = ['text', 'face', 'image', 'markdown', 'forward']
   results: InferProtoModelInput<typeof Msg.Message>[]
   children: InferProtoModelInput<typeof Msg.Elem>[]
   isGroup: boolean
@@ -107,6 +106,7 @@ class ForwardMessageEncoder {
   news: { text: string }[]
   name?: string
   uin?: number
+  innerRaws: Awaited<ReturnType<ForwardMessageEncoder['generate']>>[] = []
 
   constructor(private ctx: Context, private peer: Peer) {
     this.results = []
@@ -222,8 +222,9 @@ class ForwardMessageEncoder {
     }
   }
 
-  packForwardMessage(resid: string) {
-    const uuid = crypto.randomUUID()
+  packForwardMessage(resid: string, uuid?: string, options?: { source?: string; news?: { text: string }[]; summary?: string; prompt?: string }) {
+    const id = uuid ?? crypto.randomUUID()
+    const prompt = options?.prompt ?? '[聊天记录]'
     const content = JSON.stringify({
       app: 'com.tencent.multimsg',
       config: {
@@ -233,23 +234,23 @@ class ForwardMessageEncoder {
         type: 'normal',
         width: 300
       },
-      desc: '[聊天记录]',
+      desc: prompt,
       extra: JSON.stringify({
-        filename: uuid,
+        filename: id,
         tsum: 0,
       }),
       meta: {
         detail: {
-          news: [{
+          news: options?.news ?? [{
             text: '查看转发消息'
           }],
           resid,
-          source: '聊天记录',
-          summary: '查看转发消息',
-          uniseq: uuid,
+          source: options?.source ?? '聊天记录',
+          summary: options?.summary ?? '查看转发消息',
+          uniseq: id,
         }
       },
-      prompt: '[聊天记录]',
+      prompt,
       ver: '0.0.0.5',
       view: 'contact'
     })
@@ -291,6 +292,12 @@ class ForwardMessageEncoder {
         this.children.push(await this.packImage(data, busiType))
         this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
         unlink(tempPath).catch(e => { })
+      } else if (type === 'forward') {
+        const innerRaw = await this.generate(data.messages as OutgoingForwardedMessage[])
+        this.innerRaws.push(innerRaw)
+        const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
+        this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
+        this.preview += '[聊天记录]'
       }
     }
     await this.flush()
@@ -304,17 +311,35 @@ class ForwardMessageEncoder {
 
   async generate(content: OutgoingForwardedMessage[]) {
     await this.render(content)
+    const msg = this.results
+    const tsum = this.tsum
+    const news = this.news
+    this.results = []
+    this.tsum = 0
+    this.news = []
+    const multiMsgItems = [{
+      fileName: 'MultiMsg',
+      buffer: {
+        msg
+      }
+    }]
+    for (const raw of this.innerRaws) {
+      for (const item of raw.multiMsgItems) {
+        multiMsgItems.push({
+          fileName: item.fileName === 'MultiMsg' ? raw.uuid : item.fileName,
+          buffer: item.buffer
+        })
+      }
+    }
+    this.innerRaws = []
     return {
-      multiMsgItems: [{
-        fileName: 'MultiMsg',
-        buffer: {
-          msg: this.results
-        }
-      }],
-      tsum: this.tsum,
+      multiMsgItems,
+      tsum,
       source: this.isGroup ? '群聊的聊天记录' : '聊天记录',
-      summary: `查看${this.tsum}条转发消息`,
-      news: this.news
+      summary: `查看${tsum}条转发消息`,
+      news,
+      prompt: '[聊天记录]',
+      uuid: crypto.randomUUID()
     }
   }
 }
