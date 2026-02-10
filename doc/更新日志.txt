@@ -1,6 +1,9 @@
 V7.8.3
-更新时间 2026-02-
+更新时间 2026-02-10
 
+* 新增 macOS cli 版本
+* 修复 Desktop 版本无法更新
+* 支持 45758
 * `get_group_list` 返回字段增加 `avatar_url`, `owner_id`, `is_top`, `shut_up_all_timestamp`, `shut_up_me_timestamp`
 
 **破坏性改动**
