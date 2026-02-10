@@ -6,7 +6,16 @@ interface Payload {
   group_id: number | string
 }
 
-class GetGroupInfo extends BaseAction<Payload, OB11Group> {
+interface Response extends OB11Group {
+  owner_id: number
+  is_top: boolean
+  shut_up_all_timestamp: number
+  shut_up_me_timestamp: number
+  is_freeze: boolean
+  active_member_count: number
+}
+
+class GetGroupInfo extends BaseAction<Payload, Response> {
   actionName = ActionName.GetGroupInfo
   payloadSchema = Schema.object({
     group_id: Schema.union([Number, String]).required()
@@ -29,8 +38,8 @@ class GetGroupInfo extends BaseAction<Payload, OB11Group> {
       is_top: groupDetail.isTop,  // 是否置顶群聊
       shut_up_all_timestamp: groupDetail.shutUpAllTimestamp,  // 群全员禁言截止时间
       shut_up_me_timestamp: groupDetail.shutUpMeTimestamp,  // 我被禁言截止时间
-      active_member_num: groupDetail.activeMemberNum,  // 活跃成员数
-      is_freeze: groupDetail.isGroupFreeze === 1  // 群是否被冻结封禁
+      is_freeze: groupDetail.isGroupFreeze === 1,  // 群是否被冻结封禁
+      active_member_count: groupDetail.activeMemberNum  // 活跃成员数
     }
   }
 }
