@@ -41,7 +41,6 @@ export class EmailNotificationService extends Service {
   private async initializeConfig() {
     try {
       await this.configManager.loadConfig()
-      this.ctx.logger.info('[EmailNotification] Service initialized')
     } catch (error) {
       this.ctx.logger.error('[EmailNotification] Failed to initialize:', error)
     }
@@ -49,10 +48,9 @@ export class EmailNotificationService extends Service {
 
   private registerEventListeners() {
     this.hasLoggedIn = true
-    this.ctx.logger.info('[EmailNotification] Service started after login')
 
     let wasOffline = false
-    
+
     this.ctx.on('nt/kicked-offLine', (info: KickedOffLineInfo) => {
       wasOffline = true
       this.onOffline(info.tipsDesc || info.tipsTitle)
@@ -60,7 +58,6 @@ export class EmailNotificationService extends Service {
 
     const checkLoginStatus = setInterval(() => {
       if (wasOffline && selfInfo.online) {
-        this.ctx.logger.info('[EmailNotification] Bot reconnected, resetting notification flag')
         this.notificationSent = false
         wasOffline = false
       }
@@ -81,12 +78,10 @@ export class EmailNotificationService extends Service {
     try {
       this.fileWatcher = watch(this.configPath, async (eventType) => {
         if (eventType === 'change') {
-          this.ctx.logger.info('[EmailNotification] Config file changed, reloading')
           await this.configManager.loadConfig()
           this.ctx.parallel('llbot/email-config-updated', this.configManager.getConfig())
         }
       })
-      this.ctx.logger.info('[EmailNotification] Watching config file:', this.configPath)
     } catch (error) {
       this.ctx.logger.error('[EmailNotification] Failed to watch config file:', error)
     }
@@ -99,17 +94,14 @@ export class EmailNotificationService extends Service {
         this.onOffline('可能 QQ 已经有点死了')
       }
     })
-    this.ctx.logger.info(`[EmailNotification] Registered PMHQ disconnect callback with ID: ${this.pmhqDisconnectId}`)
   }
 
   private onOffline(reason?: string) {
     if (!this.hasLoggedIn) {
-      this.ctx.logger.debug('[EmailNotification] Offline event before login, ignoring')
       return
     }
 
     if (this.notificationSent) {
-      this.ctx.logger.debug('[EmailNotification] Notification already sent for this session')
       return
     }
 
