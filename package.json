@@ -16,7 +16,7 @@
   "license": "GPL-2.0",
   "dependencies": {
     "@minatojs/driver-sqlite": "^4.7.0",
-    "@saltify/milky-types": "^1.1.0",
+    "@saltify/milky-types": "^1.2.0-rc.1",
     "@saltify/typeproto": "^0.3.0",
     "@satorijs/element": "^3.1.8",
     "@satorijs/protocol": "^1.6.1",

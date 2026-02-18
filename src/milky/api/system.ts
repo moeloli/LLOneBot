@@ -66,7 +66,7 @@ const GetImplInfo = defineApi(
       impl_version: version,
       qq_protocol_version: deviceInfo.buildVer,
       qq_protocol_type: transformProtocolOsType(deviceInfo.devType),
-      milky_version: '1.1',
+      milky_version: '1.2',
     })
   },
 )
