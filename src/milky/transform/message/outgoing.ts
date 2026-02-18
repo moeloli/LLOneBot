@@ -77,6 +77,9 @@ export async function transformOutgoingMessage(
         const videoElement = await SendElement.video(ctx, tempPath, thumbTempPath)
         elements.push(videoElement)
         deleteAfterSentFiles.push(tempPath)
+      } else if (segment.type === 'light_app') {
+        const arkElement = SendElement.ark(segment.data.json_payload)
+        elements.push(arkElement)
       }
     } catch (error) {
       ctx.logger.error('MilkyTransform', `Failed to transform segment ${segment.type}: ${error}`)
