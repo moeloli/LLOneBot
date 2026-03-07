@@ -31,7 +31,6 @@ export enum GroupNotifyStatus {
 }
 
 export interface GroupNotify {
-  time: number // 自己添加的字段，时间戳，毫秒, 用于判断收到短时间内收到重复的notify
   seq: string // 唯一标识符，转成数字再除以1000应该就是时间戳？
   type: GroupNotifyType
   status: GroupNotifyStatus
@@ -41,13 +40,22 @@ export interface GroupNotify {
   actionUser: { uid: string, nickName: string } // 入群请求操作者
   actionTime: string
   invitationExt: {
-    srcType: number // 0?未知
+    srcType: number
     groupCode: string
     waitStatus: number
+    invitorRole: number
   }
   postscript: string // 加群用户填写的验证信息
-  repeatSeqs: []
+  repeatSeqs: string[]
   warningTips: string
+  templateSeq: string
+  groupFlagExt3: number
+  joinGroupTransInfo: {}
+  operateTransInfo: Record<number, number>
+  showModuleMsg: string
+  originMsgType: number
+  joinGroupSuspiciousCode: string
+  localCategoryFlag: number
 }
 
 export enum GroupRequestOperateTypes {
