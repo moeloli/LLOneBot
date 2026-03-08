@@ -111,8 +111,8 @@ export async function createSendElements(
         const res = await SendElement.pic(
           ctx,
           (await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)).path,
-          segment.data.summary || '',
-          segment.data.subType || 0,
+          segment.data.summary ?? '',
+          Number(segment.data.subType) || 0 ,
           segment.data.type === 'flash'
         )
         deleteAfterSentFiles.push(res.picElement.sourcePath!)

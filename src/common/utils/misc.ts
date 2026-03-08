@@ -8,9 +8,8 @@ export function isNumeric(str: string) {
 
 export function calcQQLevel(level: QQLevel) {
   const { penguinNum, crownNum, sunNum, moonNum, starNum } = level
-  return (penguinNum || 0) * 256 + crownNum * 64 + sunNum * 16 + moonNum * 4 + starNum
+  return (penguinNum ?? 0) * 256 + crownNum * 64 + sunNum * 16 + moonNum * 4 + starNum
 }
-
 
 /** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */
 export function mergeNewProperties(newObj: Dict, oldObj: Dict) {

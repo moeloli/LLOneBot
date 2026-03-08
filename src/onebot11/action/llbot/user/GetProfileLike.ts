@@ -28,11 +28,7 @@ export class GetProfileLike extends BaseAction<Payload, Response> {
     }
     const users = ret.info.userLikeInfos[0].favoriteInfo.userInfos
     for (const item of users) {
-      try {
-        item.uin = Number(await this.ctx.ntUserApi.getUinByUid(item.uid)) || 0
-      } catch (e) {
-        item.uin = 0
-      }
+      item.uin = Number(await this.ctx.ntUserApi.getUinByUid(item.uid))
     }
     return { users, nextStart: ret.info.start }
   }

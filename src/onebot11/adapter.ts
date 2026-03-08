@@ -113,7 +113,7 @@ class OneBot11Adapter extends Service {
         const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestAddEvent(
           +notify.group.groupCode,
-          +requestUin || 0,
+          +requestUin,
           flag,
           notify.postscript,
         )
@@ -125,7 +125,7 @@ class OneBot11Adapter extends Service {
         this.ctx.logger.info('收到邀请我加群通知, 邀请人uin:', userId)
         const event = new OB11GroupRequestInviteBotEvent(
           +notify.group.groupCode,
-          +userId || 0,
+          +userId,
           flag,
           notify.postscript,
           +notify.invitationExt.groupCode,
@@ -138,10 +138,10 @@ class OneBot11Adapter extends Service {
         const invitorId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         const event = new OB11GroupRequestAddEvent(
           +notify.group.groupCode,
-          +userId || 0,
+          +userId,
           flag,
           notify.postscript,
-          +invitorId || 0,
+          +invitorId,
         )
         this.dispatch(event)
       }

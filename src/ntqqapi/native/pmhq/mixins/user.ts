@@ -61,7 +61,7 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
       const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
       return (
         JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info.find((e: any) => e.uint64_uin === uin)
-          ?.uint32_login_days || 0
+          ?.uint32_login_days ?? 0
       )
     }
   }

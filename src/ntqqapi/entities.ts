@@ -65,7 +65,7 @@ export namespace SendElement {
     }
   }
 
-  export async function pic(ctx: Context, picPath: string, summary = '', subType: 0 | 1 = 0, isFlashPic?: boolean): Promise<SendPicElement> {
+  export async function pic(ctx: Context, picPath: string, summary = '', subType: number = 0, isFlashPic?: boolean): Promise<SendPicElement> {
     const fileSize = (await stat(picPath)).size
     if (fileSize === 0) {
       throw new Error(`文件异常，大小为 0: ${picPath}`)
