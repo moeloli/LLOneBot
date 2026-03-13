@@ -1,12 +1,20 @@
 import path from 'node:path'
 import { Context, Logger } from 'cordis'
-import { appendFile } from 'node:fs'
+import { appendFile, stat } from 'node:fs'
 import { LOG_DIR } from '@/common/globalVars'
 import { noop } from 'cosmokit'
 
 interface Config {
   enable: boolean
   filename: string
+}
+
+// 日志切片配置
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_ENTRIES = 10000
+
+function generateLogFilename(): string {
+  return `llbot-${new Date().toLocaleString('zh-CN')}.log`.replace(/\//g, '-').replace(/:/g, '-')
 }
 
 export interface LogRecord {
@@ -36,7 +44,23 @@ export default class Log {
   constructor(ctx: Context, cfg: Config) {
     Logger.targets.splice(0, Logger.targets.length)
     let enable = cfg.enable
-    const file = path.join(LOG_DIR, cfg.filename)
+    let currentFile = path.join(LOG_DIR, cfg.filename)
+    let currentEntries = 0
+    let currentSize = 0
+
+    // 获取现有文件大小
+    stat(currentFile, (err, stats) => {
+      if (!err && stats) {
+        currentSize = stats.size
+      }
+    })
+
+    const rotate = () => {
+      currentFile = path.join(LOG_DIR, generateLogFilename())
+      currentEntries = 0
+      currentSize = 0
+    }
+
     const target: Logger.Target = {
       colors: 0,
       record: (record: Logger.Record) => {
@@ -65,7 +89,15 @@ export default class Log {
           return
         }
         content = `[${record.type}] | ${content}`
-        appendFile(file, content, noop)
+
+        // 检查是否需要切片
+        if (currentSize >= MAX_FILE_SIZE || currentEntries >= MAX_ENTRIES) {
+          rotate()
+        }
+
+        appendFile(currentFile, content, noop)
+        currentEntries++
+        currentSize += Buffer.byteLength(content)
       },
     }
     Logger.targets.push(target)
