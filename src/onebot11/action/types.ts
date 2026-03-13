@@ -20,6 +20,7 @@ export enum ActionName {
   GetFlashFileInfo = 'get_flash_file_info',
   DownloadFlashFile = 'download_flash_file',
   UploadFlashFile = 'upload_flash_file',
+  ReShareFlashFile = 'reshare_flash_file',
   GetRKey = "get_rkey",
   SendPB = "send_pb",
   VoiceMsg2Text = 'voice_msg_to_text',

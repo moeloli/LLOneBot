@@ -1,6 +1,6 @@
 import { GeneralCallResult } from '@/ntqqapi/services/common'
 
-import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
+import { FlashFileInfo, FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
 
 export interface NodeIKernelFlashTransferService {
   createFlashTransferUploadTask(seq: number, createParam: {
@@ -60,8 +60,7 @@ export interface NodeIKernelFlashTransferService {
       seq: number,
       result: number,
       errMs: string,
-      fileLists:
-      FlashFileListItem[]
+      fileLists: FlashFileListItem[]
     }
   }>
 
@@ -80,4 +79,40 @@ export interface NodeIKernelFlashTransferService {
     fileSet: FlashFileSetInfo
     isCache: boolean
   }>
+
+  createMergeShareTask(seq: number, filesInfo: {
+    fileSetId: string,
+    shareFiles: Array<FlashFileInfo>,
+    createSetParam: {
+      scene: number
+      name: string
+      uploaders: Array<{
+        uin: string
+        nickname: string
+        uid: string
+        sendEntrance: string
+      }>
+      permission: Record<string, any>
+      coverPath: string
+      paths: string[]
+      excludePaths: string[]
+      expireLeftTime: number
+      isNeedDelDeviceInfo: boolean
+      isNeedDelLocation: boolean
+      coverOriginalInfos: Array<{
+        path: string
+        thumbnailPath: string
+      }>
+      uploadSceneType: number
+    }
+  }): GeneralCallResult & {
+    seq: number
+    mergeFlashTransferResult: {
+      fileSetId: string
+      shareLink: string
+      expireTime: string
+      expireLeftTime: string
+      hasCloudFile: boolean
+    }
+  }
 }

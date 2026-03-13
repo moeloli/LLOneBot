@@ -367,6 +367,36 @@ export class NTQQFileApi extends Service {
     return res.fileSet
   }
 
+  async reshareFlashFile(fileSetId: string) {
+    const shareFiles = (await this.getFlashFileList(fileSetId)).flatMap(f => f.fileList)
+    const fileNames = shareFiles.map(f => f.name)
+    return await invoke('nodeIKernelFlashTransferService/createMergeShareTask', [
+      new Date().getTime(),
+      {
+        fileSetId,
+        shareFiles,
+        createSetParam: {
+          scene: 1,
+          name: fileNames.join(','),
+          uploaders: [{
+            uin: selfInfo.uin,
+            uid: selfInfo.uid,
+            nickname: selfInfo.nick,
+            sendEntrance: ''
+          }],
+          permission: {},
+          coverPath: '',
+          paths: shareFiles.map(f => f.saveFilePath || ''),
+          excludePaths: [],
+          uploadSceneType: 1,
+          expireLeftTime: 0,
+          isNeedDelDeviceInfo: false,
+          isNeedDelLocation: false,
+          coverOriginalInfos: []
+        }
+      }
+    ])
+  }
   async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string) {
     const result = await this.ctx.get('app')!.pmhq.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
     const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()

@@ -70,24 +70,25 @@ export interface FlashFileDownloadingInfo {
   retryCount: number
 }
 
+export interface FlashFileInfo {
+  fileSetId: string,
+  cliFileId: string,
+  fileType: number,
+  name: string,
+  fileSize: string,
+  saveFilePath?: string,
+  status: number,
+  uploadStatus: number,  // 3 是完成
+  downloadStatus: number, // 3 是完成
+  filePhysicalSize: string,
+  physical: {
+    id: string,
+    status: number, // 2 是已完成?
+    localPath: string,
+  }
+}
 export interface FlashFileListItem {
-  fileList: {
-    fileSetId: string,
-    cliFileId: string,
-    fileType: number,
-    name: string,
-    fileSize: string,
-    saveFilePath?: string,
-    status: number,
-    uploadStatus: number,  // 3 是完成
-    downloadStatus: number, // 3 是完成
-    filePhysicalSize: string,
-    physical: {
-      id: string,
-      status: number, // 2 是已完成?
-      localPath: string,
-    }
-  }[],
+  fileList: FlashFileInfo[],
   isEnd: boolean,
   isCache: boolean
 }

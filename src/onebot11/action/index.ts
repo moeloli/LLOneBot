@@ -97,6 +97,7 @@ import { VoiceMsg2Text } from '@/onebot11/action/llbot/msg/VoiceMsg2Text'
 import { SendPB } from './llbot/system/SendPB'
 import { GetRKey } from '@/onebot11/action/llbot/file/GetRkey'
 import { UploadFlashFile } from '@/onebot11/action/llbot/file/UploadFlashFile'
+import { ReShareFlashFile } from '@/onebot11/action/llbot/file/ReShareFlashFile'
 import { GetQQAvatar } from '@/onebot11/action/llbot/user/GetQQAvatar'
 import { DownloadFlashFile } from '@/onebot11/action/llbot/file/DownloadFlashFile'
 import { GetFlashFileInfo } from '@/onebot11/action/llbot/file/GetFlashFileInfo'
@@ -128,6 +129,7 @@ export function initActionMap(adapter: Adapter) {
     new GetFlashFileInfo(adapter),
     new DownloadFlashFile(adapter),
     new UploadFlashFile(adapter),
+    new ReShareFlashFile(adapter),
     new GetRKey(adapter),
     new SendPB(adapter),
     new VoiceMsg2Text(adapter),
