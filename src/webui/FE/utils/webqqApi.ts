@@ -55,20 +55,20 @@ export async function getLoginInfo(): Promise<{ uid: string; uin: string; nick: 
 // 获取好友列表（带分组）
 export async function getFriends(): Promise<FriendCategory[]> {
   // 获取带分组的好友列表
-  const buddyV2Result = await ntCall<{ data: any[] }>('ntFriendApi', 'getBuddyV2', [true])
+  const buddyV2Result = await ntCall<{ data: unknown[] }>('ntFriendApi', 'getBuddyV2', [true])
   const buddyList = await ntCall<any[]>('ntFriendApi', 'getBuddyList', [])
-  
+
   // 创建 uid -> SimpleInfo 的映射
-  const buddyMap = new Map<string, any>()
+  const buddyMap = new Map<string, unknown>()
   for (const buddy of buddyList) {
     buddyMap.set(buddy.uid, buddy)
   }
-  
+
   // 构建分组数据
   const categories = (buddyV2Result.data || []).map((category: any) => {
     const friends = (category.buddyUids || [])
       .map((uid: string) => buddyMap.get(uid))
-      .filter((buddy: any) => buddy)
+      .filter((buddy: unknown) => buddy)
       .map((buddy: any) => ({
         uid: buddy.uid,
         uin: buddy.uin,
@@ -78,7 +78,7 @@ export async function getFriends(): Promise<FriendCategory[]> {
         online: buddy.status?.status === 10 || false,
         topTime: buddy.relationFlags?.topTime || '0'
       }))
-    
+
     return {
       categoryId: category.categoryId,
       categoryName: category.categroyName || '我的好友',
@@ -88,10 +88,10 @@ export async function getFriends(): Promise<FriendCategory[]> {
       friends
     }
   })
-  
+
   // 按 categorySort 排序
-  categories.sort((a: any, b: any) => a.categorySort - b.categorySort)
-  
+  categories.sort((a, b) => a.categorySort - b.categorySort)
+
   return categories
 }
 
@@ -112,18 +112,18 @@ export async function getGroups(): Promise<GroupItem[]> {
 // 获取最近会话列表
 export async function getRecentChats(): Promise<RecentChatItem[]> {
   const result = await ntCall<{ info: { changedList: any[] } }>('ntUserApi', 'getRecentContactListSnapShot', [50])
-  
+
   // 获取群列表和好友列表的置顶信息
   const [groupsData, friendsData] = await Promise.all([
     getGroups(),
     getFriends()
   ])
-  
+
   // 创建置顶信息映射
   const topMap = new Map<string, boolean>()
-  
+
   // 群聊置顶信息（排除 msgMask === 2 的群）
-  const toppedGroups: any[] = []
+  const toppedGroups = []
   groupsData.forEach(group => {
     // 群助手的群（msgMask === 2）不应该出现在最近联系列表
     if (group.msgMask === 2) {
@@ -134,22 +134,22 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
       toppedGroups.push(group)
     }
   })
-  
+
   // 好友置顶信息
-  const toppedFriends: any[] = []
+  const toppedFriends = []
   friendsData.forEach(category => {
     category.friends.forEach(friend => {
-      const isTop = !!(friend as any).topTime && (friend as any).topTime !== '0'
+      const isTop = !!friend.topTime && friend.topTime !== '0'
       topMap.set(`1_${friend.uin}`, isTop)
       if (isTop) {
         toppedFriends.push(friend)
       }
     })
   })
-  
+
   // 创建已存在的会话 ID 集合
   const existingChatIds = new Set<string>()
-  
+
   // 处理最近联系列表中的会话
   const recentChats = result.info.changedList
     .filter(item => {
@@ -160,13 +160,13 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
       const chatType = item.chatType as 1 | 2 | 100
       const isGroup = chatType === 2
       const peerId = isGroup ? (item.peerUin || item.peerUid) : item.peerUin
-      
+
       existingChatIds.add(`${chatType}_${peerId}`)
-      
+
       // 从群列表或好友列表获取置顶状态
       const topKey = `${chatType}_${peerId}`
       const pinned = topMap.get(topKey) || false
-      
+
       return {
         chatType,
         peerId,
@@ -178,7 +178,7 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
         pinned
       }
     })
-  
+
   // 添加置顶但不在最近联系列表中的群聊（排除群助手的群）
   toppedGroups.forEach(group => {
     const chatId = `2_${group.groupCode}`
@@ -195,7 +195,7 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
       })
     }
   })
-  
+
   // 添加置顶但不在最近联系列表中的好友
   toppedFriends.forEach(friend => {
     const chatId = `1_${friend.uin}`
@@ -212,19 +212,19 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
       })
     }
   })
-  
+
   // 排序：置顶的在前，然后按时间排序
   recentChats.sort((a, b) => {
     if (a.pinned && !b.pinned) return -1
     if (!a.pinned && b.pinned) return 1
     return b.lastTime - a.lastTime
   })
-  
+
   return recentChats
 }
 
 // 提取消息摘要
-function extractAbstractContent(abstractContent: any): string {
+function extractAbstractContent(abstractContent: unknown): string {
   const extractFromItem = (item: any): string => {
     if (!item) return ''
     if (typeof item === 'string') return item
@@ -297,7 +297,7 @@ export async function getMessages(
   if (afterMsgSeq) {
     params.append('afterMsgSeq', afterMsgSeq)
   }
-  
+
   const response = await apiFetch<MessagesResponse>(`/api/webqq/messages?${params}`)
   if (!response.success) {
     throw new Error(response.message || '获取消息历史失败')
@@ -322,7 +322,7 @@ export async function sendMessage(request: SendMessageRequest): Promise<{ msgId:
 export async function uploadImage(file: File): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append('image', file)
-  
+
   const response = await apiFetch<UploadResponse>('/api/webqq/upload', {
     method: 'POST',
     body: formData
@@ -350,7 +350,7 @@ export async function uploadImageByUrl(imageUrl: string): Promise<UploadResponse
 export async function uploadFile(file: File): Promise<{ filePath: string; fileName: string; fileSize: number }> {
   const formData = new FormData()
   formData.append('file', file)
-  
+
   const response = await apiFetch<{ filePath: string; fileName: string; fileSize: number }>('/api/webqq/upload-file', {
     method: 'POST',
     body: formData
@@ -380,7 +380,7 @@ export async function getUserInfo(uid: string): Promise<{ uid: string; uin: stri
 }
 
 // 通用 NT API 调用
-export async function ntCall<T = any>(service: string, method: string, args: any[] = []): Promise<T> {
+export async function ntCall<T = any>(service: string, method: string, args: unknown[] = []): Promise<T> {
   const response = await apiFetch<T>(`/api/ntcall/${service}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -434,7 +434,7 @@ export async function sendPoke(chatType: number, targetUin: number, groupCode?: 
 }
 
 // 语音转文字
-export async function translatePttToText(msgId: string, chatType: number, peerUid: string, voiceElement: any): Promise<string> {
+export async function translatePttToText(msgId: string, chatType: number, peerUid: string, voiceElement: unknown): Promise<string> {
   const peer = { chatType, peerUid, guildId: '' }
   const text = await ntCall<string>('ntMsgApi', 'translatePtt2Text', [msgId, peer, voiceElement])
   return text || ''
@@ -503,35 +503,35 @@ export interface UserProfile {
 // 获取用户详细资料 - 使用 ntUserApi
 export async function getUserProfile(uid?: string, uin?: string, groupCode?: string): Promise<UserProfile> {
   let targetUid = uid
-  
+
   // 如果只有 uin，先转换为 uid
   if (!targetUid && uin) {
     targetUid = await ntCall<string>('ntUserApi', 'getUidByUin', [uin])
   }
-  
+
   if (!targetUid) {
     throw new Error('无法获取用户信息')
   }
-  
+
   // fetchUserDetailInfo 返回 { detail: { [uid]: UserDetailInfo } }（Map 已被序列化为对象）
   const result = await ntCall<{ detail: Record<string, any> }>('ntUserApi', 'fetchUserDetailInfo', [targetUid])
   const userInfo = result.detail[targetUid]
-  
+
   if (!userInfo) {
     throw new Error('用户不存在')
   }
-  
+
   // 获取 uin
   let targetUin = uin || userInfo.uin
   if (!targetUin) {
     targetUin = await ntCall<string>('ntUserApi', 'getUinByUid', [targetUid])
   }
-  
+
   const simpleInfo = userInfo.simpleInfo
   const coreInfo = simpleInfo?.coreInfo
   const baseInfo = simpleInfo?.baseInfo
   const commonExt = userInfo.commonExt
-  
+
   // 获取 QQ 等级
   let level = commonExt?.qqLevel?.level || 0
   // 如果等级为 0，通过 pmhq.fetchUserLevel 获取
@@ -542,7 +542,7 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
       // 获取等级失败，忽略
     }
   }
-  
+
   const profile: UserProfile = {
     uid: targetUid,
     uin: targetUin || '',
@@ -557,7 +557,7 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
     regTime: commonExt?.regTime || undefined,
     avatar: `https://q1.qlogo.cn/g?b=qq&nk=${targetUin}&s=640`
   }
-  
+
   // 如果是群聊，获取群成员信息
   if (groupCode) {
     try {
@@ -571,7 +571,7 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
         joinTime?: number
         lastSpeakTime?: number
       } | null>('ntGroupApi', 'getGroupMember', [groupCode, targetUid, false])
-      
+
       if (memberInfo) {
         profile.groupCard = memberInfo.cardName || ''
         profile.groupRole = memberInfo.role === 4 ? 'owner' : memberInfo.role === 3 ? 'admin' : 'member'
@@ -585,27 +585,27 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
       // 获取群成员信息失败，忽略
     }
   }
-  
+
   return profile
 }
 
 // 创建 SSE 连接（带自动重连）
 export function createEventSource(
-  onMessage: (event: any) => void, 
-  onError?: (error: any) => void,
+  onMessage: (event: unknown) => void,
+  onError?: (error: unknown) => void,
   onReconnect?: () => void
 ): EventSource {
   const token = getToken()
   const url = token ? `/api/webqq/events?token=${encodeURIComponent(token)}` : '/api/webqq/events'
-  
+
   let eventSource: EventSource
   let reconnectAttempts = 0
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let isClosed = false
-  
+
   const connect = () => {
     eventSource = new EventSource(url)
-    
+
     eventSource.addEventListener('message', (event) => {
       try {
         const data = JSON.parse(event.data)
@@ -614,12 +614,12 @@ export function createEventSource(
         console.error('解析 SSE 消息失败:', e)
       }
     })
-    
+
     eventSource.addEventListener('connected', () => {
       console.log('[SSE] 连接已建立')
       reconnectAttempts = 0
     })
-    
+
     eventSource.onopen = () => {
       console.log('[SSE] 连接打开')
       // 如果是重连成功，触发回调
@@ -629,36 +629,36 @@ export function createEventSource(
       }
       reconnectAttempts = 0
     }
-    
+
     eventSource.onerror = (error) => {
       console.error('[SSE] 连接错误:', error)
-      
+
       if (isClosed) return
-      
+
       // 关闭当前连接
       eventSource.close()
-      
+
       // 计算重连延迟（指数退避，最大 30 秒）
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
       reconnectAttempts++
-      
+
       console.log(`[SSE] 将在 ${delay}ms 后尝试第 ${reconnectAttempts} 次重连...`)
-      
+
       reconnectTimer = setTimeout(() => {
         if (!isClosed) {
           console.log('[SSE] 正在重连...')
           connect()
         }
       }, delay)
-      
+
       onError?.(error)
     }
-    
+
     return eventSource
   }
-  
+
   eventSource = connect()
-  
+
   // 返回一个包装的 EventSource，支持正确关闭
   const wrappedEventSource = {
     close: () => {
@@ -687,7 +687,7 @@ export function createEventSource(
     CLOSED: EventSource.CLOSED,
     withCredentials: eventSource.withCredentials
   } as EventSource
-  
+
   return wrappedEventSource
 }
 
@@ -770,7 +770,7 @@ export interface GroupProfile {
 // 获取群详细资料
 export async function getGroupProfile(groupCode: string): Promise<GroupProfile> {
   const groupAll = await ntCall<any>('ntGroupApi', 'getGroupAllInfo', [groupCode])
-  
+
   // 打印群介绍调试
   console.log('[WebQQ] 群资料:', {
     groupCode: groupAll.groupCode,
@@ -781,7 +781,7 @@ export async function getGroupProfile(groupCode: string): Promise<GroupProfile> 
     groupMemoLength: groupAll.groupMemo?.length,
     richFingerMemo: groupAll.richFingerMemo,
   })
-  
+
   // 获取群主信息
   let ownerName = ''
   if (groupAll.ownerUid) {
@@ -793,7 +793,7 @@ export async function getGroupProfile(groupCode: string): Promise<GroupProfile> 
       // 忽略错误
     }
   }
-  
+
   return {
     groupCode: groupAll.groupCode,
     groupName: groupAll.groupName,
@@ -814,19 +814,19 @@ export function formatMessageTime(timestamp: number): string {
   const date = new Date(timestamp)
   const now = new Date()
   const isToday = date.toDateString() === now.toDateString()
-  
+
   if (isToday) {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   }
-  
+
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
   const isYesterday = date.toDateString() === yesterday.toDateString()
-  
+
   if (isYesterday) {
     return `昨天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
   }
-  
+
   return date.toLocaleDateString('zh-CN', {
     month: '2-digit',
     day: '2-digit',
