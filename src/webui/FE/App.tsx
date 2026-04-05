@@ -113,10 +113,10 @@ function App() {
             nick: response.data.selfInfo.nick || '',
             uin: response.data.selfInfo.uin,
           });
-          
+
           // 获取主配置
           setConfig(response.data.config);
-          
+
           // 获取邮件配置（独立管理）
           try {
             const emailResponse = await apiFetch<EmailConfig>('/api/email/config');
@@ -126,7 +126,7 @@ function App() {
           } catch (e) {
             console.error('Failed to fetch email config:', e);
           }
-          
+
           // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
           try {
             const deviceInfoRes = await apiFetch<{ devType: string; buildVer: string }>('/api/device-info');
@@ -155,19 +155,19 @@ function App() {
       setLoading(true);
       const finalConfig = configToSave || config;
       const finalEmailConfig = emailConfigToSave !== undefined ? emailConfigToSave : emailConfig;
-      
+
       // 保存主配置
       const response = await apiFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config: finalConfig }),
       });
-      
+
       if (!response.success) {
         showToast(response.message || '保存失败', 'error');
         return;
       }
-      
+
       // 保存邮件配置（如果有）
       if (finalEmailConfig) {
         try {
@@ -176,19 +176,19 @@ function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(finalEmailConfig),
           });
-          
+
           if (!emailResponse.success) {
             showToast(`主配置已保存，但邮件配置保存失败：${emailResponse.message}`, 'warning');
             return;
           }
-        } catch (emailError: any) {
+        } catch (emailError) {
           showToast(`主配置已保存，但邮件配置保存失败：${emailError.message}`, 'warning');
           return;
         }
       }
-      
+
       showToast('配置保存成功', 'success');
-    } catch (error: any) {
+    } catch (error) {
       showToast(error.message || '保存失败', 'error');
     } finally {
       setLoading(false);
