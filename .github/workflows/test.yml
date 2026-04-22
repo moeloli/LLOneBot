@@ -173,6 +173,30 @@ jobs:
         working-directory: test/onebot11-api-test
         run: npm install
 
+      - name: Write test config
+        run: |
+          cat > test/onebot11-api-test/config/test.config.json << 'CONF'
+          {
+            "accounts": {
+              "primary": {
+                "host": "http://127.0.0.1:53000",
+                "apiKey": "123",
+                "protocol": "http",
+                "user_id": "1577491075"
+              },
+              "secondary": {
+                "host": "http://127.0.0.1:53001",
+                "apiKey": "123",
+                "protocol": "http",
+                "user_id": "412805684"
+              }
+            },
+            "test_group_id": "1098066573",
+            "timeout": 30000,
+            "retryAttempts": 3
+          }
+          CONF
+
       - name: Run OneBot11 API tests
         working-directory: test/onebot11-api-test
         run: npm test
