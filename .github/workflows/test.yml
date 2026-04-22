@@ -139,10 +139,6 @@ jobs:
           }
           CONF
 
-      - name: Stop resident LLBot containers
-        run: |
-          docker stop llbot1 llbot2 2>/dev/null || true
-
       - name: Start LLBot instances
         run: |
           cd $GITHUB_WORKSPACE/workspace1 && npx tsx $GITHUB_WORKSPACE/src/main/main.ts --pmhq-host=127.0.0.1 --pmhq-port=13001 > llbot1.log 2>&1 &
@@ -189,11 +185,6 @@ jobs:
           kill $LLBOT2_PID 2>/dev/null || true
           echo "=== LLBot1 logs ===" && tail -30 $GITHUB_WORKSPACE/workspace1/llbot1.log 2>/dev/null || true
           echo "=== LLBot2 logs ===" && tail -30 $GITHUB_WORKSPACE/workspace2/llbot2.log 2>/dev/null || true
-
-      - name: Restart resident LLBot containers
-        if: always()
-        run: |
-          docker start llbot1 llbot2 2>/dev/null || true
 
       - name: Upload test report
         if: always()
