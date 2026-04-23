@@ -99,7 +99,7 @@ async function onLoad() {
   }
 
   const isDocker = isDockerEnvironment()
-  let qrCodeTriggered = false
+  let lastQrCodeTime = 0
 
   const printLoginQrCode = async () => {
     try {
@@ -135,8 +135,9 @@ async function onLoad() {
       return
     }
     if (!pmhqSelfInfo.online) {
-      if (isDocker && !qrCodeTriggered) {
-        qrCodeTriggered = true
+      const now = Date.now()
+      if (isDocker && now - lastQrCodeTime > 120_000) {
+        lastQrCodeTime = now
         printLoginQrCode()
       }
       setTimeout(checkLogin, 1000)
