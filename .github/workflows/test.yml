@@ -93,6 +93,9 @@ jobs:
     needs: [unit-test, build-test]
     if: github.event_name == 'pull_request'
     steps:
+      - name: Cleanup root-owned files
+        run: sudo rm -rf ${{ github.workspace }}/workspace1 ${{ github.workspace }}/workspace2 ${{ github.workspace }}/test/onebot11-api-test/node_modules
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -181,10 +184,8 @@ jobs:
             sleep 5
           done
 
-      - name: Install test deps and write config
+      - name: Write test config
         run: |
-          cd ${{ github.workspace }}/test/onebot11-api-test && npm install
-
           cat > ${{ github.workspace }}/test/onebot11-api-test/config/test.config.json << 'CONF'
           {
             "accounts": {
@@ -214,7 +215,7 @@ jobs:
             -v ${{ github.workspace }}/test/onebot11-api-test:/app/test:rw \
             -v ${{ github.workspace }}/src:/app/src:ro \
             -w /app/test \
-            node:24-alpine3.23 sh -c "npm test"
+            node:24-alpine3.23 sh -c "npm install && npm test"
         continue-on-error: true
 
       - name: Stop PR LLBot containers
