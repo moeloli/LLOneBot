@@ -107,6 +107,7 @@ jobs:
             -e AUTO_LOGIN_QQ=1577491075 \
             -v llbot-test_qq_volume1:/root/.config/QQ \
             -v ${{ github.workspace }}:/app/workspace:rw \
+            -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
             linyuchen/pmhq:latest
 
           docker run -d --name pmhq2-test \
@@ -116,6 +117,7 @@ jobs:
             -e AUTO_LOGIN_QQ=412805684 \
             -v llbot-test_qq_volume2:/root/.config/QQ \
             -v ${{ github.workspace }}:/app/workspace:rw \
+            -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
             linyuchen/pmhq:latest
 
           echo "Waiting for PMHQ to be ready..."
