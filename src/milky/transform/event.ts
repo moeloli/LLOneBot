@@ -76,6 +76,29 @@ export async function transformTempMessageCreated(
 }
 
 /**
+ * Transform NTQQ message-deleted event to Milky message_recall event (temp)
+ */
+export async function transformTempMessageDeleted(
+  ctx: Context,
+  message: RawMessage
+): Promise<MilkyEventTypes['message_recall'] | null> {
+  try {
+    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
+    return {
+      message_scene: 'temp',
+      peer_id: Number(message.peerUin),
+      message_seq: Number(message.msgSeq),
+      sender_id: Number(message.senderUin),
+      operator_id: Number(message.senderUin),
+      display_suffix: revokeElement.wording,
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform temp message deleted event:', error)
+    return null
+  }
+}
+
+/**
  * Transform NTQQ message-deleted event to Milky message_recall event (private)
  */
 export async function transformPrivateMessageDeleted(
