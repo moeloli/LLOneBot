@@ -602,4 +602,53 @@ export class NTQQWebApi extends Service {
       fail_indexes: errIndexList,
     }
   }
+
+  async publishGroupBulletin(
+    groupCode: string,
+    text: string,
+    pinned: number,
+    type: number,
+    isShowEditCard: number,
+    tipWindowType: number,
+    confirmRequired: number,
+    picId?: string,
+    imgWidth?: number,
+    imgHeight?: number
+  ) {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const bkn = this.genBkn(cookieObject.skey)
+
+    const picInfo = {
+      pic: picId,
+      imgWidth: imgWidth?.toString(),
+      imgHeight: imgHeight?.toString()
+    }
+
+    const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/add_qun_notice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': this.cookieToString(cookieObject)
+      },
+      body: new URLSearchParams({
+        qid: groupCode,
+        bkn,
+        text,
+        pinned: pinned.toString(),
+        type: type.toString(),
+        settings: JSON.stringify({
+          is_show_edit_card: isShowEditCard,
+          tip_window_type: tipWindowType,
+          confirm_required: confirmRequired,
+        }),
+        ...(picId ? picInfo : {})
+      })
+    })
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! Status: ${res.status}`)
+    }
+
+    return await res.json()
+  }
 }
