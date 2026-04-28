@@ -28,16 +28,17 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
     let info: UserDetailInfo | undefined
     try {
       info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)
+      this.ctx.logger.info('getUserDetailInfoWithBizInfo')
     } catch (e) {
       try {
         const fetchInfo = await this.ctx.ntUserApi.fetchUserDetailInfo(member.uid)
-        if (fetchInfo) {
-          info = fetchInfo.detail.get(member.uid)
-        }
+        info = fetchInfo.detail.get(member.uid)
+        this.ctx.logger.info('fetchUserDetailInfo')
       } catch (e) {
       }
     }
     if (info) {
+      this.ctx.logger.info(info.simpleInfo.baseInfo)
       ret.sex = OB11Entities.sex(info.simpleInfo.baseInfo.sex)
       ret.qq_level = info.commonExt?.qqLevel && calcQQLevel(info.commonExt.qqLevel) || 0
       ret.age = info.simpleInfo.baseInfo.age ?? 0
