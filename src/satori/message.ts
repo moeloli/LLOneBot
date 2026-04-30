@@ -383,7 +383,8 @@ export class MessageEncoder {
         this.elements.push(SendElement.at('', '', NT.AtType.All, '@全体成员'))
       } else {
         const uid = await this.ctx.ntUserApi.getUidByUin(attrs.id, this.peer.peerUid)
-        const display = attrs.name ? '@' + attrs.name : ''
+        const info = await this.ctx.ntGroupApi.getGroupMember(this.peer.peerUid, uid)
+        const display = attrs.name ? '@' + attrs.name : `@${info.cardName || info.nick}`
         this.elements.push(SendElement.at(attrs.id, uid, NT.AtType.One, display))
       }
     } else if (type === 'a') {
