@@ -10,6 +10,10 @@
 ## Document
 <https://luckylillia.com>
 
+## References
+
+[LagrangeV2](https://github.com/LagrangeDev/LagrangeV2)
+
 ## Stargazers over time
 
 [![Stargazers over time](https://starchart.cc/LLOneBot/LuckyLilliaBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LuckyLilliaBot)
