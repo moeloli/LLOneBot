@@ -4,10 +4,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
 import { DirectQQProtocol } from '../../../src/main/qqProtocol/direct'
 import { DirectProtocolClient, type SessionInfo } from '../../../src/main/qqProtocol/direct-lib/client'
-import { fetchQrCode } from '../../../src/main/qqProtocol/direct-lib/login'
+import {
+  fetchQrCode,
+  getCorrectUin,
+  loginWithQrResult,
+  pollQrCode,
+  type LoginResult,
+} from '../../../src/main/qqProtocol/direct-lib/login'
 import { deleteMachineGuid } from '../../../src/main/qqProtocol/direct-lib/machineGuid'
-import { deleteSession } from '../../../src/main/qqProtocol/direct-lib/session'
-import { requestSign } from '../../../src/main/qqProtocol/direct-lib/sign'
+import { registerOnline, startHeartbeat } from '../../../src/main/qqProtocol/direct-lib/online'
+import {
+  deleteSession,
+  loadSession,
+  persistedToSessionInfo,
+  saveSession,
+} from '../../../src/main/qqProtocol/direct-lib/session'
+import { requestSign, updateAuthToken } from '../../../src/main/qqProtocol/direct-lib/sign'
 import { teaEncrypt } from '../../../src/main/qqProtocol/direct-lib/tea'
 import { getCurrentLoginState } from '../../../src/main/llbot-ipc'
 
@@ -55,6 +67,11 @@ vi.mock('@/main/qqProtocol/direct-lib/login', () => ({
   loginWithQrResult: vi.fn(),
   getCorrectUin: vi.fn(),
   QrCodeState: { Confirmed: 0, WaitingForConfirm: 53, Expired: 17, Cancelled: 54 },
+}))
+
+vi.mock('@/main/qqProtocol/direct-lib/online', () => ({
+  registerOnline: vi.fn(async () => 'ok'),
+  startHeartbeat: vi.fn(() => vi.fn()),
 }))
 
 vi.mock('@/main/qqProtocol/direct-lib/connection', () => ({
@@ -107,6 +124,25 @@ function responseFrame(seq: number, retCode = 0, cmd = 'test.command', extraMsg 
 }
 
 const authMessage = '身份验证失败，请你重新登录。(s20)'
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: Error) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+const loginSuccess: LoginResult = {
+  success: true,
+  ...createSession(),
+  tempPassword: Buffer.alloc(16),
+  nick: 'TestBot',
+  age: 0,
+  gender: 0,
+}
 
 describe('direct session authentication failures', () => {
   let client: DirectProtocolClient
@@ -222,6 +258,8 @@ describe('direct session authentication failures', () => {
     protocol['reconnectTimer'] = setTimeout(reconnect, 5000) as unknown as NodeJS.Timeout
     const disconnect = vi.fn()
     ctx.on('protocol/disconnect', disconnect)
+    const offline = vi.fn()
+    ctx.on('qq/session-expired', offline)
     const qrLoop = vi
       .spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop')
       .mockImplementation(() => {})
@@ -240,6 +278,8 @@ describe('direct session authentication failures', () => {
     expect(deleteMachineGuid).not.toHaveBeenCalled()
     expect(stopHeartbeat).toHaveBeenCalledTimes(1)
     expect(disconnect).toHaveBeenCalledTimes(alreadyOnline ? 1 : 0)
+    expect(offline).toHaveBeenCalledTimes(alreadyOnline ? 1 : 0)
+    if (alreadyOnline) expect(offline).toHaveBeenCalledWith(expect.stringContaining(authMessage))
     expect(qrLoop).toHaveBeenCalledTimes(1)
     expect(getCurrentLoginState()).toMatchObject({ state: 'need_qrcode' })
     expect(client['conn'].disconnect).not.toHaveBeenCalled()
@@ -284,5 +324,215 @@ describe('direct session authentication failures', () => {
     expect(selfInfo.online).toBe(false)
     expect(deleteSession).not.toHaveBeenCalled()
     expect(reconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['uin', 'login', 'register'] as const)('abandons QR completion invalidated during %s', async (stage) => {
+    const protocol = new DirectQQProtocol(new Context())
+    protocol['directClient'] = client
+    protocol['qrPollToken'] = 1
+    protocol['directQrResult'] = {
+      url: 'https://example.com/qr?k=test',
+      image: Buffer.alloc(0),
+      sig: Buffer.alloc(16),
+      tgtgtKey: Buffer.alloc(16),
+    }
+    protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
+    selfInfo.online = false
+    vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    protocol['bindDirectClientEvents'](client)
+    const uin = deferred<number>()
+    const login = deferred<LoginResult>()
+    const registration = deferred<string>()
+    vi.mocked(getCorrectUin).mockReturnValue(stage === 'uin' ? uin.promise : Promise.resolve(123456))
+    vi.mocked(loginWithQrResult).mockReturnValue(stage === 'login' ? login.promise : Promise.resolve(loginSuccess))
+    vi.mocked(registerOnline).mockReturnValue(registration.promise)
+    const completion = protocol['completeDirectLogin'](1)
+    if (stage === 'login') await vi.waitFor(() => expect(loginWithQrResult).toHaveBeenCalled())
+    if (stage === 'register') await vi.waitFor(() => expect(registerOnline).toHaveBeenCalled())
+
+    client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
+    uin.resolve(123456)
+    login.resolve(loginSuccess)
+    registration.resolve('ok')
+    await completion
+
+    expect(client.isLoggedIn).toBe(false)
+    expect(selfInfo.online).toBe(false)
+    expect(protocol['onlineEmitted']).toBe(false)
+    expect(saveSession).not.toHaveBeenCalled()
+    expect(startHeartbeat).not.toHaveBeenCalled()
+    expect(authTokenStatus.loginError).toContain(authMessage)
+    expect(getCurrentLoginState()).toMatchObject({ state: 'need_qrcode' })
+  })
+
+  it('does not let a late registration failure clear a replacement session', async () => {
+    const protocol = new DirectQQProtocol(new Context())
+    protocol['directClient'] = client
+    protocol['qrPollToken'] = 1
+    protocol['directQrResult'] = {
+      url: 'https://example.com/qr?k=test',
+      image: Buffer.alloc(0),
+      sig: Buffer.alloc(16),
+      tgtgtKey: Buffer.alloc(16),
+    }
+    protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
+    selfInfo.online = false
+    vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    protocol['bindDirectClientEvents'](client)
+    vi.mocked(getCorrectUin).mockResolvedValue(123456)
+    vi.mocked(loginWithQrResult).mockResolvedValue(loginSuccess)
+    const registration = deferred<string>()
+    vi.mocked(registerOnline).mockReturnValue(registration.promise)
+    const completion = protocol['completeDirectLogin'](1)
+    await vi.waitFor(() => expect(registerOnline).toHaveBeenCalled())
+
+    client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
+    const replacement = createSession()
+    client.setSession(replacement)
+    selfInfo.online = true
+    authTokenStatus.loginError = ''
+    registration.reject(new Error('Old registration failed'))
+    await completion
+
+    expect(client.getSession()).toBe(replacement)
+    expect(selfInfo.online).toBe(true)
+    expect(authTokenStatus.loginError).toBe('')
+    expect(saveSession).not.toHaveBeenCalled()
+    expect(startHeartbeat).not.toHaveBeenCalled()
+  })
+
+  it.each([false, true])('guards saved-session registration after invalidation (late failure: %s)', async (fails) => {
+    const protocol = new DirectQQProtocol(new Context())
+    protocol['directClient'] = client
+    selfInfo.online = false
+    vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    protocol['bindDirectClientEvents'](client)
+    vi.mocked(updateAuthToken).mockResolvedValue(undefined)
+    vi.mocked(loadSession).mockReturnValue({
+      uin: '123456',
+      uid: 'test-uid',
+      guid: Buffer.alloc(16).toString('hex'),
+      savedAt: 0,
+    })
+    vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
+    const registration = deferred<string>()
+    vi.mocked(registerOnline).mockReturnValue(registration.promise)
+    const completion = protocol['doInitDirectClient']('test-auth-token')
+    await vi.waitFor(() => expect(registerOnline).toHaveBeenCalled())
+
+    client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
+    const replacement = createSession()
+    client.setSession(replacement)
+    if (fails) registration.reject(new Error('Old registration failed'))
+    else registration.resolve('ok')
+    await completion
+
+    expect(client.getSession()).toBe(replacement)
+    expect(selfInfo.online).toBe(false)
+    expect(startHeartbeat).not.toHaveBeenCalled()
+    expect(authTokenStatus.loginError).toContain(authMessage)
+  })
+
+  it('still saves and announces a current QR login after registration succeeds', async () => {
+    const ctx = new Context()
+    const protocol = new DirectQQProtocol(ctx)
+    protocol['directClient'] = client
+    protocol['qrPollToken'] = 1
+    protocol['directQrResult'] = {
+      url: 'https://example.com/qr?k=test',
+      image: Buffer.alloc(0),
+      sig: Buffer.alloc(16),
+      tgtgtKey: Buffer.alloc(16),
+    }
+    protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
+    selfInfo.online = false
+    client.clearSession()
+    vi.mocked(pollQrCode).mockResolvedValue(protocol['directPollResult'])
+    vi.mocked(getCorrectUin).mockResolvedValue(123456)
+    vi.mocked(loginWithQrResult).mockImplementation(async () => {
+      client.setSession(createSession())
+      return loginSuccess
+    })
+    const registration = deferred<string>()
+    vi.mocked(registerOnline).mockReturnValue(registration.promise)
+    const online = vi.fn()
+    ctx.on('qq/online', online)
+    protocol['startDirectQrPolling']()
+    await vi.advanceTimersByTimeAsync(2000)
+    await vi.waitFor(() => expect(registerOnline).toHaveBeenCalled())
+    expect(saveSession).not.toHaveBeenCalled()
+    registration.resolve('ok')
+    await vi.waitFor(() => expect(online).toHaveBeenCalledTimes(1))
+    expect(saveSession).toHaveBeenCalledTimes(1)
+    expect(startHeartbeat).toHaveBeenCalledExactlyOnceWith(client)
+    expect(online).toHaveBeenCalledTimes(1)
+    expect(selfInfo.online).toBe(true)
+  })
+
+  it('cancels QR completion on logout even before a session has been installed', async () => {
+    const protocol = new DirectQQProtocol(new Context())
+    protocol['directClient'] = client
+    protocol['qrPollToken'] = 1
+    protocol['directQrResult'] = {
+      url: 'https://example.com/qr?k=test',
+      image: Buffer.alloc(0),
+      sig: Buffer.alloc(16),
+      tgtgtKey: Buffer.alloc(16),
+    }
+    protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
+    selfInfo.online = false
+    client.clearSession()
+    vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    const uin = deferred<number>()
+    vi.mocked(getCorrectUin).mockReturnValue(uin.promise)
+    const completion = protocol['completeDirectLogin'](1)
+    await protocol.logout()
+    uin.resolve(123456)
+    await completion
+    expect(loginWithQrResult).not.toHaveBeenCalled()
+    expect(saveSession).not.toHaveBeenCalled()
+    expect(selfInfo.online).toBe(false)
+  })
+
+  it('rejects a superseded login response before it can install credentials', async () => {
+    const { loginWithQrResult: realLogin } = await vi.importActual<
+      typeof import('../../../src/main/qqProtocol/direct-lib/login')
+    >('../../../src/main/qqProtocol/direct-lib/login')
+    client.clearSession()
+    const response = deferred<Awaited<ReturnType<DirectProtocolClient['sendCommand']>>>()
+    vi.spyOn(client, 'sendCommand').mockReturnValue(response.promise)
+    let current = true
+    const login = realLogin(
+      client,
+      {
+        state: 0,
+        uin: '123456',
+        tgtgtKey: Buffer.alloc(16),
+        tempPassword: Buffer.alloc(16),
+        noPicSig: Buffer.alloc(16),
+      },
+      () => current,
+    )
+    const rejected = expect(login).rejects.toThrow('QR login attempt was superseded')
+    current = false
+    response.resolve({ seq: 1, retCode: 0, extraMsg: '', cmd: 'wtlogin.login', payload: Buffer.alloc(0) })
+    await rejected
+    expect(client.isLoggedIn).toBe(false)
+  })
+
+  it('does not delay disconnect callbacks when unauthenticated pushes keep arriving', async () => {
+    const protocol = new DirectQQProtocol(new Context())
+    protocol['directClient'] = client
+    protocol['bindDirectClientEvents'](client)
+    vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    const disconnected = vi.fn()
+    protocol.onDisconnect(10000, disconnected)
+    protocol['startDisconnectMonitoring']()
+    client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
+    for (let i = 0; i < 6; i++) {
+      await vi.advanceTimersByTimeAsync(2000)
+      client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
+    }
+    expect(disconnected).toHaveBeenCalledTimes(1)
   })
 })
