@@ -339,6 +339,31 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   /** 给 client 挂事件 (error/connected/close/push). 只在首次建立 client 时调一次 -- 复用 client 不重挂. */
   private bindDirectClientEvents(client: DirectProtocolClient): void {
+    client.on('session-expired', (uin: string, error: Error) => {
+      const wasOnline = this.onlineEmitted
+      selfInfo.online = false
+      this.onlineEmitted = false
+      authTokenStatus.loginError = error.message
+      this.logger.warn('QQ session expired:', error.message)
+      if (this.directStopHeartbeat) {
+        this.directStopHeartbeat()
+        this.directStopHeartbeat = null
+      }
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer)
+        this.reconnectTimer = null
+      }
+      // Remove only the rejected account's credentials; retain the device identity and native client.
+      deleteSession(uin)
+      this.runtimeUinOverride = null
+      this.qrPollToken++
+      this.directQrResult = null
+      this.directPollResult = null
+      this.resetQrState()
+      setLoginState({ state: 'need_qrcode', qrcode_png_base64: undefined })
+      if (wasOnline) this.ctx.parallel('protocol/disconnect')
+      this.ensureQrLoop()
+    })
     client.on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)
     })
