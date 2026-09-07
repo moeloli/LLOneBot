@@ -756,6 +756,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000): Promise<SsoPacket> {
     const seq = this.nextSeq()
+    const session = this.session
     const ctx = this.getPacketContext()
     const enc = encryptType ?? (this.session ? EncryptType.EncryptD2Key : EncryptType.EncryptEmpty)
 
@@ -784,6 +785,10 @@ export class DirectProtocolClient extends EventEmitter {
       }
     }
 
+    // Signing can still be in flight when another request invalidates the session.
+    if (this.session !== session) {
+      throw new Error('QQ session changed before the command could be sent')
+    }
     const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
 
     // 调试用: 出网前 dump SSO frame, 跟真机抓包对照定位 sign 不一致的字节差异.
@@ -823,6 +828,22 @@ export class DirectProtocolClient extends EventEmitter {
     const parsed = parseServicePacket(frame, d2Key)
     if (!parsed) {
       this.emit('error', new Error('Failed to parse incoming packet'))
+      return
+    }
+    // Authentication failures can have seq=0 and no command, so handle them before request matching.
+    if (parsed.retCode === -10001 && this.session) {
+      const uin = this.session.uin
+      const error = new Error(
+        `QQ session authentication failed: retCode=${parsed.retCode}, ${parsed.extraMsg || 'Please log in again'}`,
+      )
+      this.clearSession()
+      for (const pending of this.pendingPackets.values()) {
+        clearTimeout(pending.timeout)
+        pending.reject(error)
+      }
+      this.pendingPackets.clear()
+      this.frameArriveAt.clear()
+      this.emit('session-expired', uin, error)
       return
     }
     if (isDebugEnabled()) this.frameArriveAt.set(parsed.seq, tArrive)
